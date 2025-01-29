@@ -1,9 +1,4 @@
-"""
----------------------------
-Runing Elegan with new input file and using sdd to visualise the results
-June. 2020
-----------------------------
-"""
+
 import os
 os.system('clear')
 import numpy as np
@@ -37,7 +32,7 @@ def Mtrix_elem(Rphi, K, L ):
 
 	with open(my_file, 'r') as file:
     		lines = file.readlines()
-#now we have an array of lines. If we want to edit the line 13...
+#now we have an array of lines. If we want to edit the line 31...
 	line_to_replace =13
 	if len(lines) > line_to_replace:
     		lines[line_to_replace] = S13

@@ -1,0 +1,123 @@
+!-----------------------------------------------!
+! XTDS beam line july 2020			!
+! Bolko.B and NSMirian				!
+!  The TDS is imposed by EMATRIX elemnt line    !
+!-----------------------------------------------!
+
+Q:      CHARGE,TOTAL=0.25e-09
+! Flags for ISR, CSR and LSC (0: off, 1: on)
+% 0    sto     flag_isr
+% 0    sto     flag_csr
+% 0     sto     flag_lsc
+
+! K value for TDS (0: off, 1: on)
+% 0.0	sto  K		! e0*V0*k/(pc) cos(phi)
+% 0.0	sto  KL2	! KL/2 cos(phi)
+% 0.0	sto  K2L6	! K^2L/6 cos(phi)
+% 5.0	sto  L		! length of the TDS
+% 0.0	sto  AK		! e0*V0*k/(pc)
+% 0.0	sto  AKL2	! KL/2
+
+
+
+Q1U: QUAD,	L=0.12,K1=-0.3876827590000092
+Q1D: QUAD,	L=0.12,K1=-0.3876827590000092
+Q2U: QUAD,	L=0.12,K1=0.01937162116428262
+Q2D: QUAD,	L=0.12,K1=0.01937162116428262
+Q5U: QUAD,	L=0.12,K1=-0.2258184147147647
+Q5D: QUAD,	L=0.12,K1=-0.2258184147147647
+Q6U: QUAD,	L=0.12,K1=0.4904317602764587
+Q6D: QUAD,	L=0.12,K1=0.4904317602764587
+Q7U: QUAD,	L=0.12,K1=-0.3393599921707456
+Q7D: QUAD,	L=0.12,K1=-0.3393599921707456
+Q8U: QUAD,	L=0.12,K1=-0.09414384866841101
+Q8D: QUAD,	L=0.12,K1=-0.09414384866841101
+Q9U: QUAD,	L=0.12,K1=-0.1004681299461905
+Q9D: QUAD,	L=0.12,K1=-0.1004681299461905
+Q10U: QUAD,	L=0.12,K1=-0.400237892267858
+Q10D: QUAD,	L=0.12,K1=-0.400237892267858
+
+DP1:   SBEN, 	L=2.500793, ANGLE=0.05, E1=0.0, E2=0.05,TILT= 1.570796 
+DP2:   SBEN, 	L=2.500793, ANGLE=0.05, E1=0.0, E2=0.05,TILT= 1.570796 
+
+d1:     DRIFT, 	L = 0
+d2:     DRIFT, 	L = 5
+d3:     DRIFT, 	L = 0
+d4:     DRIFT, 	L = 0    
+d5:     DRIFT, 	L = 5
+d6:     DRIFT, 	L = 1
+d7:     DRIFT, 	L = 1
+d8:     DRIFT, 	L = 8
+d9:     DRIFT, 	L = 8
+d10:    DRIFT, 	L = 8
+d11:    DRIFT, 	L = 8
+d12:    DRIFT, 	L = 8 
+!TDS:    DRIFT, 	L = 5
+
+TDSx:   EMATRIX,l = 5, 	R11=1, 	R12=L,	R13=0,	R14=0,	R15=KL2,R16= 0, &
+			R21=0, 	R22=1, 	R23=0,	R24=0,	R25=K,	R26=0, &
+			R31=0,	R32=0,	R33=1,	R34=L,	R35=0,	R36=0, &
+			R41=0,	R42=0,	R43=0,	R44=1,	R45=0,	R46=0, &
+			R51=0,	R52=0,	R53=0,	R54=0,	R55=1,	R56=0, &
+			R61=AK,	R62=AKL2,R63=0,	R64=0,	R65=K2L6,R66=1
+
+TDSy:   EMATRIX,l = 5, 	R11=1,	R12=L,	R13=0,	R14=0,	R15=0 ,	R16= 0, &
+			R21=0,	R22=1,	R23=0,	R24=0,	R25=0,	R26=0, &
+			R31=0,	R32=0,	R33=1,	R34=L,	R35=KL2,R36=0, &
+			R41=0,	R42=0,	R43=0,	R44=1,	R45=K,	R46=0, &
+			R51=0,	R52=0,	R53=0,	R54=0,	R55=1,	R56=0, &
+			R61=0,	R62=0,	R63=AK,	R64=AKL2,R65=K2L6,R66=1
+
+
+db1:    DRIFT, 	L=3
+db2:    DRIFT, 	L=3
+db3:    DRIFT, 	L=3
+db4:    DRIFT, 	L=3
+
+q1:     mark
+q2:     mark
+q3:     mark
+q4:     mark
+q5:     mark
+q6:     mark
+q7:     mark
+q8:     mark
+q9:     mark
+q10:    mark
+M1:     mark, FITPOINT = 1
+M2:     mark, FITPOINT = 1
+B1:     mark, FITPOINT = 1
+
+WM1:		WATCH,filename="TM1.sdds",mode=coord, label="TM1 in"
+WM2:		WATCH,filename="TM2.sdds",mode=coord, label="TM2 in"
+W1:		WATCH,filename="final.sdds",mode=coord, label="final in"
+W0:		WATCH,filename="inj.sdds",mode=coord, label="inj in"
+W01:		WATCH,filename="inj2.sdds",mode=coord, label="inj2 in"
+
+new : LINE = (  Q,     &
+    d1,         Q1U,        q1,         Q1D,    &
+    d2,         Q2U,        q2,         Q2D,    &
+    d5,         Q5U,        q5,         Q5D,    &
+    d6,         M1,         TDSx,        M2,     &
+    d7,         Q6U,        q6,         Q6D,    &
+    d8,         Q7U,        q7,         Q7D,    &
+    d9,         Q8U,        q8,         Q8D,    &
+    db1,DP1,db2,        Q9U,        q9,         Q9D,    &
+    db3,DP2,db4,        Q10U,       q10,        Q10D,   &
+    d12,        B1         &
+)
+
+newT : LINE = (  Q, W0 ,   &
+    d1,         Q1U,        q1,         Q1D,    &
+    d2,         Q2U,        q2,         Q2D,    &
+    d5,         Q5U,        q5,         Q5D,    &
+    d6,         M1, W01,        TDSx,        M2, WM1,    &
+    d7,         Q6U,        q6,         Q6D,    &
+    d8,         Q7U,        q7,         Q7D,    &
+    d9,         Q8U,        q8,         Q8D,WM2,    &
+    db1,DP1,db2,        Q9U,        q9,         Q9D,    &
+    db3,DP2,db4,        Q10U,       q10,        Q10D,   &
+    d12,        B1 ,   W1)
+
+
+
