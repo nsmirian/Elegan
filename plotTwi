@@ -1,0 +1,115 @@
+#!/bin/sh  
+# \
+exec tclsh "$0" "$@"
+
+proc APSStrictParseArguments {optlist} {
+    upvar args arguments
+    set length [llength $arguments]
+    set index 0
+    set leftovers {}
+    while {$index<$length} {
+	set arg [lindex $arguments $index]
+	if {[string index $arg 0]=="-"} {
+	    set keywordName [string range $arg 1 end]
+	    if {[lsearch -exact $optlist $keywordName]!=-1} {
+		incr index
+		if {$index==$length} {
+		    lappend leftovers $arg
+		} else {
+		    set valueString [lindex $arguments $index]
+		    uplevel "set $keywordName {$valueString}"
+		    incr index
+		}
+	    } else {
+		incr index
+		lappend leftovers $arg
+	    }
+	} else {
+	    lappend leftovers $arg
+	    incr index
+	}
+    }
+    set arguments [concat $leftovers]
+    if {$arguments != ""} {
+	set procName [lindex [info level [expr {[info level] - 1}]] 0]
+	puts stderr "Unknown option(s) given to $procName \"$arguments\""
+	return -1
+    } else {
+	return 0
+    }
+}
+
+
+proc APSClearOptions {} {
+    upvar args arguments
+    set length [llength $arguments]
+    set index 0
+    set leftovers {}
+    while {$index<$length} {
+	set arg [lindex $arguments $index]
+	if {[string index $arg 0]=="-"} {
+	    incr index 2
+	} else {
+	    lappend leftovers $arg
+	    incr index
+	}
+    }
+    set arguments [concat $leftovers]
+}
+
+set usage {usage: plotCompress -rootname <string> [-device <name>] [-printer <name>] [-output <filename>]}
+set args $argv
+set rootname ""
+set device motif
+set output ""
+set printer ""
+set sparse 1
+if {[APSStrictParseArguments {rootname device printer output sparse}]} {
+    puts stderr $usage
+    exit 1
+}
+if [string length $rootname]==0 {
+    puts stderr "Supply rootname"
+    exit 1
+}
+if {[string length $printer] && [string length $output]} {
+    puts stderr "Supply printer or output file, not both"
+    exit 1
+}
+
+if [string length $printer] {
+    set endArg "| lpr -P$printer"
+} else {
+    set endArg ""
+}
+set geometry 600x450
+
+
+exec sddsplot -layout=2,2,limitPerPage=4 -split=pages \
+	-graph=line,vary -unsuppressZero \
+	-column=s,betax -yscale=id=1 -graph=line,type=3 -legend $rootname.twi \
+	-column=s,betay -yscale=id=1 -graph=line,type=1 -legend $rootname.twi \
+	-column=s,etax  -yscale=id=2 -graph=line,type=2 -legend $rootname.twi \
+	-column=s,etay  -yscale=id=2 -graph=line,type=4 -legend $rootname.twi \
+	-column=s,Profile -overlay=xmode=norm,yfact=0.06 \
+	-graph=line,type=0 $rootname.mag \
+	-topTitle \
+	-endPanel \
+	-column=s,Cx $rootname.cen  -graph=line,type=3 -legend \
+	-column=s,Cy $rootname.cen  -graph=line,type=1 -legend \
+	-column=s,Profile $rootname.mag -overlay=xmode=norm,yfact=0.06 \
+	-graph=line,type=0 \
+	-topTitle \
+	-endPanel \
+	-column=s,Sx $rootname.sig   -graph=line,type=2 -yLabel=scale=1.5 -legend \
+	-column=s,Sy $rootname.sig   -graph=line,type=4 -yLabel=scale=1.5 -legend \
+	-column=s,Profile $rootname.mag -overlay=xmode=norm,yfact=0.06 \
+	-graph=line,type=0 \
+	-topTitle \
+	-endPanel \
+	-column=s,pCentral $rootname.cen -yscale=id=1 -graph=line,type=8 -legend\
+	-column=s,enx -yscale=id=2 -graph=line,type=3 -legend $rootname.sig -yLabel=scale=1.5 \
+	-column=s,eny -yscale=id=2 -graph=line,type=1 -legend $rootname.sig -yLabel=scale=1.5 \
+	-column=s,Profile $rootname.mag -overlay=xmode=norm,yfact=0.06 \
+	-graph=line,type=0 \
+	-topTitle &

@@ -1,0 +1,166 @@
+#!/bin/sh
+# \
+exec tclsh "$0" "$@"
+
+
+proc APSStrictParseArguments {optlist} {
+    upvar args arguments
+    set length [llength $arguments]
+    set index 0
+    set leftovers {}
+    while {$index<$length} {
+	set arg [lindex $arguments $index]
+	if {[string index $arg 0]=="-"} {
+	    set keywordName [string range $arg 1 end]
+	    if {[lsearch -exact $optlist $keywordName]!=-1} {
+		incr index
+		if {$index==$length} {
+		    lappend leftovers $arg
+		} else {
+		    set valueString [lindex $arguments $index]
+		    uplevel "set $keywordName {$valueString}"
+		    incr index
+		}
+	    } else {
+		incr index
+		lappend leftovers $arg
+	    }
+	} else {
+	    lappend leftovers $arg
+	    incr index
+	}
+    }
+    set arguments [concat $leftovers]
+    if {$arguments != ""} {
+	set procName [lindex [info level [expr {[info level] - 1}]] 0]
+	puts stderr "Unknown option(s) given to $procName \"$arguments\""
+	return -1
+    } else {
+	return 0
+    }
+}
+
+
+proc APSClearOptions {} {
+    upvar args arguments
+    set length [llength $arguments]
+    set index 0
+    set leftovers {}
+    while {$index<$length} {
+	set arg [lindex $arguments $index]
+	if {[string index $arg 0]=="-"} {
+	    incr index 2
+	} else {
+	    lappend leftovers $arg
+	    incr index
+	}
+    }
+    set arguments [concat $leftovers]
+}
+
+set usage {usage: plotCompress -rootname <string> [-device <name>] [-printer <name>] [-output <filename>]}
+set args $argv
+set rootname ""
+set device motif
+set output ""
+set printer ""
+set sparse 1
+if {[APSStrictParseArguments {rootname device printer output sparse}]} {
+    puts stderr $usage
+    exit 1
+}
+if [string length $rootname]==0 {
+    puts stderr "Supply rootname"
+    exit 1
+}
+if {[string length $printer] && [string length $output]} {
+    puts stderr "Supply printer or output file, not both"
+    exit 1
+}
+
+if [string length $printer] {
+    set endArg "| lpr -P$printer"
+} else {
+    set endArg ""
+}
+set geometry 600x450
+
+foreach end {finOptA finA finOptB fin} {
+if ![file exists $rootname.$end] continue
+catch {exec sddscollapse $rootname.$end -pipe=out \
+         | sddsprocess -pipe -clip=0,1,invert \
+         | sddsexpand -pipe \
+         | sddsprocess -pipe -nowarning \
+         "-define=parameter,Current,Charge 0.8 * Dt80 /,units=A" \
+         "-define=parameter,Energy,pCentral 0.511 *,units=MeV" \
+         | sddsprintout -pipe -format=double=%21.15e \
+         -param=Sdelta -param=Ddelta80,end -param=St \
+         -param=Dt80,end -param=Current -param=Charge -param=Energy,end \
+	 -param=R56 -param=R51 -param=R52,end} result
+puts stderr "$result"
+}
+
+if [string length $output] {
+    set endArg "> $output.1"
+}
+set fileList ""
+foreach exten {out input bcin bcout s1out s2out w1out w2out w3out w4out w5out w6out} {
+    if [file exists $rootname.$exten.out] {
+        lappend fileList $rootname.$exten.out
+    }
+}
+if [lsearch -exact $fileList $rootname.dba2out.gz]==-1 {
+    lappend fileList $rootname.out
+}
+
+    set nbins 600
+    eval exec sddscombine $fileList -pipe=out -retain=col,t,p \
+      | sddsprocess -pipe \
+      "-process=p,ave,pMean" -process=t,ave,tMean \
+      {"-define=column,delta,p pMean - pMean /,symbol=\$gd\$r"} \
+      {"-redefine=column,dt,t tMean -,symbol=\$gD\$rt"} \
+      | tee $rootname.tp \
+      | sddsmultihist -pipe -bins=$nbins -column=dt,delta -sides -sep \
+      | sddsconvert -pipe -dele=param,Charge,Particles \
+      | sddsxref -pipe $rootname.fin \
+      -leave=* -transfer=param,Charge,Particles,Transmission,Dt*,Ddelta*,St,Sdelta \
+      | sddsprocess -pipe=in $rootname.tpHis \
+      {"-define=parameter,MPCharge,Charge Particles /,units=C"} \
+      -process=dt,spread,dtSpread -process=dt,count,dtCount \
+      {"-define=parameter,dtBinSize,dtSpread dtCount 1 - /,units=s"} \
+      {"-define=column,Current,dtFrequency dtBinSize / MPCharge *,units=A"} \
+      {"-define=parameter,Energy,pCentral 0.511 *,units=MeV"} \
+      {"-print=parameter,EnergyLabel,Energy: %g%s,Energy,Energy.units"} \
+      {"-print=parameter,ChargeLabel,Charge: %g%s,Charge,Charge.units"} \
+      {"-print=parameter,TransmissionLabel,Transmission: %g,Transmission"} \
+      {"-print=parameter,DtLabel,%s: %g%s,Dt80.symbol,Dt80,Dt80.units"} \
+      {"-print=parameter,SdeltaLabel,%s: %g,Sdelta.symbol,Sdelta"} \
+      {"-print=parameter,StLabel,%s: %g%s,St.symbol,St,St.units"} \
+      {"-print=parameter,DdeltaLabel,%s: %g%s,Ddelta80.symbol,Ddelta80,Ddelta80.units"} \
+      {"-edit=parameter,FileLabel,Filename,Z.%/.out//ai/$rootname /"}
+
+
+if [string length $output] {
+    set endArg "> $output"
+} else {
+    set endArg &
+}
+
+
+# exec sddsplot linac.sig -col=s
+
+
+eval exec sddsplot -geometry $geometry -device=$device  -split=page -groupby=page,tag -sep=tag -layout=2,2,limit=3 \
+    -column=dt,Current -ticks=xf=1e12 $rootname.tpHis -tag=3 \
+    -column=deltaFrequency,delta  $rootname.tpHis -tag=2 \
+    "-string=@FileLabel,p=0.5,q=-0.4,justify=cc,scale=2" \
+    "-string=@EnergyLabel,p=0.5,q=-0.55,justify=cc,scale=2" \
+    -string=@ChargeLabel,p=0.5,q=-0.70,justify=cc,scale=2 \
+    -string=@TransmissionLabel,p=0.5,q=-0.85,justify=cc,scale=2 \
+    -string=@DtLabel,p=0.5,q=-1.0,justify=cc,scale=2 \
+    -string=@DdeltaLabel,p=0.5,q=-1.15,justify=cc,scale=2 \
+    -string=@StLabel,p=0.5,q=-1.30,justify=cc,scale=2 \
+    -string=@SdeltaLabel,p=0.5,q=-1.45,justify=cc,scale=2 \
+    -column=dt,delta -ticks=xf=1e12 $rootname.tp -graph=dot -tag=1 \
+    -sample=[expr 1./$sparse] $endArg 
+#-scale=-0.5e-12,0.4e12,-1.5e-3,3.8e-3 \
